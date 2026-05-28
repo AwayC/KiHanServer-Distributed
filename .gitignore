@@ -1,0 +1,45 @@
+# Binaries and executables
+**/bin/
+gateway/bin/
+login_server/bin/
+lobby_server/build/
+*.exe
+*.exe.manifest
+*.dll
+*.so
+*.dylib
+
+# C++ Build Files
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/Makefile
+**/generated/
+*.o
+*.obj
+*.a
+*.lib
+
+# Go Generated files
+gateway/pb/*.pb.go
+
+# Protobuf/gRPC Generated files
+*.pb.cc
+*.pb.h
+*.grpc.pb.cc
+*.grpc.pb.h
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Logs and temps
+*.log
+tmp/

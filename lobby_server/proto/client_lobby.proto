@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package kihan.api;
+
+// CmdID: 1001
+message LoginReq {}
+message LoginRsp {
+    int32 err_code = 1;
+}
+
+// CmdID: 1002
+message LogoutReq {}
+message LogoutRsp {
+    int32 err_code = 1;
+}
+
+// CmdID: 1003
+message CreateRoleReq {
+    string nickname = 1;
+}
+message CreateRoleRsp {
+    int32 err_code = 1;
+}
+
+// CmdID: 1004
+message CreateRoleNtf {}
+
+// CmdID: 1005
+message MatchGameReq {
+    int32 character_id = 1;
+}
+message MatchGameRsp {
+    int32 err_code = 1;
+}
+
+// CmdID: 1006
+message MatchStopReq {}
+message MatchStopRsp {
+    int32 err_code = 1;
+    bool success = 2;
+}
+
+// CmdID: 1007
+message MatchGameNtf {
+    int32 err_code = 1;
+    string room_id = 2;
+    int32 position = 3;
+    string room_snapshot_json = 4;
+}

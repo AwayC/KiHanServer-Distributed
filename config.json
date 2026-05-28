@@ -15,6 +15,12 @@
     "ip": "127.0.0.1",
     "port": 9000
   },
+  "lobby": {
+    "addr": "127.0.0.1:9001"
+  },
+  "game": {
+    "addr": "127.0.0.1:9002"
+  },
   "secrets": {
     "token_salt": "away_game_salt_2026_xyz"
   },

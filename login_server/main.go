@@ -343,6 +343,10 @@ func main() {
 				return
 			}
 
+			// 🚨 新增：顶号处理，通知 Gateway 踢掉旧连接
+			kickMsg := fmt.Sprintf(`{"uid": "%d", "new_token": "%s"}`, user.Uid, token)
+			rdb.Publish(ctx, "gateway:kick", kickMsg)
+
 			c.JSON(http.StatusOK, gin.H{
 				"code": ErrOk,
 				"msg":  "success",
