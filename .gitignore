@@ -3,6 +3,8 @@
 gateway/bin/
 login_server/bin/
 lobby_server/build/
+lobby_server/cmake-build/
+lobby_server/cmake-build-debug/
 *.exe
 *.exe.manifest
 *.dll

@@ -2,10 +2,17 @@ syntax = "proto3";
 
 package kihan.api;
 
+message PlayerInfo {
+    string uid = 1;
+    string nickname = 2;
+    string data_json = 3;
+}
+
 // CmdID: 1001
 message LoginReq {}
 message LoginRsp {
     int32 err_code = 1;
+    PlayerInfo player = 2;
 }
 
 // CmdID: 1002
@@ -46,4 +53,11 @@ message MatchGameNtf {
     string room_id = 2;
     int32 position = 3;
     string room_snapshot_json = 4;
+}
+
+// CmdID: 1008
+message GetPlayerDataReq {}
+message GetPlayerDataRsp {
+    int32 err_code = 1;
+    PlayerInfo player = 2;
 }

@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/server_builder.h>
 #include "lobby_service.h"
 #include "db_manager.h"
 

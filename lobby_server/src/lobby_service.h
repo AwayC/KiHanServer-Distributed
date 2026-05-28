@@ -1,6 +1,8 @@
 #pragma once
 
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/health_check_service_interface.h>
+#include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include "router.grpc.pb.h"
 #include "client_lobby.pb.h"
 
@@ -20,4 +22,5 @@ private:
     void HandleMatchGame(const kihan::internal::GatewayRequest* req, kihan::internal::GatewayResponse* rsp);
     void HandleMatchStop(const kihan::internal::GatewayRequest* req, kihan::internal::GatewayResponse* rsp);
     void HandleLogout(const kihan::internal::GatewayRequest* req, kihan::internal::GatewayResponse* rsp);
+    void HandleGetPlayerData(const kihan::internal::GatewayRequest* req, kihan::internal::GatewayResponse* rsp);
 };

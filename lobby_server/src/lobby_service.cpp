@@ -19,9 +19,9 @@ Status LobbyServiceImpl::HandleRequest(ServerContext* context, const GatewayRequ
         case 1003: HandleCreateRole(request, response); break;
         case 1005: HandleMatchGame(request, response); break;
         case 1006: HandleMatchStop(request, response); break;
+        case 1008: HandleGetPlayerData(request, response); break;
         default:
             std::cerr << "[Lobby] Unknown cmd_id: " << cmd_id << std::endl;
-            // Provide a default empty response or error
             break;
     }
 
@@ -30,7 +30,6 @@ Status LobbyServiceImpl::HandleRequest(ServerContext* context, const GatewayRequ
 
 Status LobbyServiceImpl::ClientDisconnect(ServerContext* context, const GatewayRequest* request, GatewayResponse* response) {
     std::cout << "[Lobby] Client disconnected - uid: " << request->uid() << " conn_id: " << request->conn_id() << std::endl;
-    // TODO: Remove player from matchmaking queue if they were queuing
     return Status::OK;
 }
 
@@ -41,19 +40,22 @@ void LobbyServiceImpl::HandleLogin(const GatewayRequest* req, GatewayResponse* r
         return;
     }
 
-    bool exists = DBManager::GetInstance().PlayerExists(req->uid());
+    auto data = DBManager::GetInstance().GetPlayerData(req->uid());
     
-    if (exists) {
-        // Return LoginRsp
+    if (data) {
         LoginRsp login_rsp;
         login_rsp.set_err_code(0);
         
-        rsp->set_cmd_id(1001); // Actually, typically a response might have the same CmdID or a different one. Assuming 1001.
+        auto* p_info = login_rsp.mutable_player();
+        p_info->set_uid(data->uid);
+        p_info->set_nickname(data->nickname);
+        p_info->set_data_json(data->data_json);
+        
+        rsp->set_cmd_id(1001);
         login_rsp.SerializeToString(rsp->mutable_payload());
     } else {
         // Return CreateRoleNtf (CmdID 1004)
         CreateRoleNtf ntf;
-        
         rsp->set_cmd_id(1004);
         ntf.SerializeToString(rsp->mutable_payload());
     }
@@ -79,7 +81,7 @@ void LobbyServiceImpl::HandleLogout(const GatewayRequest* req, GatewayResponse* 
     logout_rsp.set_err_code(0);
     
     rsp->set_cmd_id(1002);
-    rsp->set_kick_client(true); // Tell gateway to close connection
+    rsp->set_kick_client(true);
     logout_rsp.SerializeToString(rsp->mutable_payload());
 }
 
@@ -90,7 +92,6 @@ void LobbyServiceImpl::HandleMatchGame(const GatewayRequest* req, GatewayRespons
     }
 
     std::cout << "Player " << req->uid() << " queuing with char_id: " << match_req.character_id() << std::endl;
-    // TODO: Add to match queue
 
     MatchGameRsp match_rsp;
     match_rsp.set_err_code(0);
@@ -100,13 +101,28 @@ void LobbyServiceImpl::HandleMatchGame(const GatewayRequest* req, GatewayRespons
 }
 
 void LobbyServiceImpl::HandleMatchStop(const GatewayRequest* req, GatewayResponse* rsp) {
-    std::cout << "Player " << req->uid() << " stopped queuing." << std::endl;
-    // TODO: Remove from match queue
-
     MatchStopRsp stop_rsp;
     stop_rsp.set_err_code(0);
     stop_rsp.set_success(true);
 
     rsp->set_cmd_id(1006);
     stop_rsp.SerializeToString(rsp->mutable_payload());
+}
+
+void LobbyServiceImpl::HandleGetPlayerData(const GatewayRequest* req, GatewayResponse* rsp) {
+    auto data = DBManager::GetInstance().GetPlayerData(req->uid());
+    
+    GetPlayerDataRsp p_rsp;
+    if (data) {
+        p_rsp.set_err_code(0);
+        auto* p_info = p_rsp.mutable_player();
+        p_info->set_uid(data->uid);
+        p_info->set_nickname(data->nickname);
+        p_info->set_data_json(data->data_json);
+    } else {
+        p_rsp.set_err_code(-1); // Player not found or DB error
+    }
+
+    rsp->set_cmd_id(1008);
+    p_rsp.SerializeToString(rsp->mutable_payload());
 }

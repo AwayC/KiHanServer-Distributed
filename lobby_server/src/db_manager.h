@@ -1,9 +1,16 @@
 #pragma once
 
 #include <string>
-#include <mysql.h>
+#include <mysqlx/xdevapi.h>
 #include <mutex>
+#include <memory>
 #include <iostream>
+
+struct PlayerData {
+    std::string uid;
+    std::string nickname;
+    std::string data_json;
+};
 
 class DBManager {
 public:
@@ -20,14 +27,13 @@ public:
     // Create new player
     bool CreatePlayer(const std::string& uid, const std::string& nickname);
 
-private:
-    DBManager() : conn_(nullptr) {}
-    ~DBManager() {
-        if (conn_) {
-            mysql_close(conn_);
-        }
-    }
+    // Fetch full player data
+    std::unique_ptr<PlayerData> GetPlayerData(const std::string& uid);
 
-    MYSQL* conn_;
+private:
+    DBManager() = default;
+    ~DBManager() = default;
+
+    std::unique_ptr<mysqlx::Session> session_;
     std::mutex db_mutex_;
 };

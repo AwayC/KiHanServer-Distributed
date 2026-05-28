@@ -11,13 +11,24 @@
 
 ---
 
+### 通用数据结构
+```protobuf
+message PlayerInfo {
+    string uid = 1;
+    string nickname = 2;
+    string data_json = 3; // JSON 格式的游戏存档数据
+}
+```
+
+---
+
 ### CmdID: 1001 - 登录大厅
 *   **请求: LoginReq**
     *   描述：客户端连接网关后，发送登录大厅请求。
     *   Payload：`message LoginReq {}` (空)
 *   **响应: LoginRsp**
     *   描述：大厅登录响应。
-    *   Payload：`message LoginRsp { int32 err_code = 1; }`
+    *   Payload：`message LoginRsp { int32 err_code = 1; PlayerInfo player = 2; }`
 
 ### CmdID: 1002 - 登出大厅
 *   **请求: LogoutReq**
@@ -27,7 +38,7 @@
     *   描述：登出大厅响应。
     *   Payload：`message LogoutRsp { int32 err_code = 1; }`
 
-### CmdID: 1003 - 创建角色 (新增)
+### CmdID: 1003 - 创建角色
 *   **请求: CreateRoleReq**
     *   描述：创建角色时客户端发出的请求。
     *   Payload：`message CreateRoleReq { string nickname = 1; }`
@@ -70,3 +81,11 @@
             string room_snapshot_json = 4; // 例如 "{1p_info: {charactor_id, nickname}, 2p_info: ...}"
         }
         ```
+
+### CmdID: 1008 - 获取玩家数据 (新增)
+*   **请求: GetPlayerDataReq**
+    *   描述：客户端主动拉取玩家最新数据。
+    *   Payload：`message GetPlayerDataReq {}`
+*   **响应: GetPlayerDataRsp**
+    *   描述：返回玩家详细信息。
+    *   Payload：`message GetPlayerDataRsp { int32 err_code = 1; PlayerInfo player = 2; }`
