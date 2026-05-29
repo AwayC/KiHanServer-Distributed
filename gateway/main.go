@@ -19,7 +19,6 @@ func main() {
 	// 1. Load config
 	config.LoadConfig("../config.json")
 	cfg := config.GlobalConfig
-
 	// 1.5 Init RPC Manager
 	err := rpc.InitRPCManager(cfg.Lobby.Addr, cfg.Game.Addr)
 	if err != nil {

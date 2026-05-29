@@ -1,8 +1,10 @@
 #pragma once
 
+// 必须在生成的 pb 头文件之前包含 grpcpp
 #include <grpcpp/grpcpp.h>
-#include <grpcpp/health_check_service_interface.h>
-#include <grpcpp/ext/proto_server_reflection_plugin.h>
+#include <grpcpp/support/status.h>
+#include <grpcpp/impl/codegen/service_type.h> // 显式包含以解决“类型不完整”问题
+
 #include "router.grpc.pb.h"
 #include "client_lobby.pb.h"
 

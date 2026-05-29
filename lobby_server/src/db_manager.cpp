@@ -15,7 +15,7 @@ bool DBManager::Init(const std::string& host, int port, const std::string& user,
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         )").execute();
 
-        std::cout << "Database initialized successfully (X DevAPI)." << std::endl;
+        std::cout << "Database initialized successfully (X DevAPI via Homebrew Path)." << std::endl;
         return true;
     } catch (const mysqlx::Error &err) {
         std::cerr << "Database Init Error: " << err.what() << std::endl;
@@ -28,8 +28,10 @@ bool DBManager::Init(const std::string& host, int port, const std::string& user,
 
 bool DBManager::PlayerExists(const std::string& uid) {
     std::lock_guard<std::mutex> lock(db_mutex_);
+    if (!session_) return false;
     try {
-        auto table = session_->getSchema("kihan_db").getTable("kihan_game_players");
+        auto schema = session_->getSchema("kihan_db");
+        auto table = schema.getTable("kihan_game_players");
         auto res = table.select("1").where("uid = :uid").bind("uid", uid).execute();
         return res.count() > 0;
     } catch (const mysqlx::Error &err) {
@@ -40,8 +42,10 @@ bool DBManager::PlayerExists(const std::string& uid) {
 
 bool DBManager::CreatePlayer(const std::string& uid, const std::string& nickname) {
     std::lock_guard<std::mutex> lock(db_mutex_);
+    if (!session_) return false;
     try {
-        auto table = session_->getSchema("kihan_db").getTable("kihan_game_players");
+        auto schema = session_->getSchema("kihan_db");
+        auto table = schema.getTable("kihan_game_players");
         table.insert("uid", "nickname", "data")
              .values(uid, nickname, "{}")
              .execute();
@@ -54,8 +58,10 @@ bool DBManager::CreatePlayer(const std::string& uid, const std::string& nickname
 
 std::unique_ptr<PlayerData> DBManager::GetPlayerData(const std::string& uid) {
     std::lock_guard<std::mutex> lock(db_mutex_);
+    if (!session_) return nullptr;
     try {
-        auto table = session_->getSchema("kihan_db").getTable("kihan_game_players");
+        auto schema = session_->getSchema("kihan_db");
+        auto table = schema.getTable("kihan_game_players");
         auto res = table.select("uid", "nickname", "data")
                         .where("uid = :uid")
                         .bind("uid", uid)
@@ -68,7 +74,6 @@ std::unique_ptr<PlayerData> DBManager::GetPlayerData(const std::string& uid) {
         data->uid = (std::string)row[0];
         data->nickname = (std::string)row[1];
         
-        // Handle JSON column - X DevAPI might return it as a string or special type
         if (!row[2].isNull()) {
             data->data_json = (std::string)row[2];
         } else {

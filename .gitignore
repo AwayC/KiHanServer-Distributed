@@ -45,3 +45,8 @@ Thumbs.db
 # Logs and temps
 *.log
 tmp/
+
+# Others
+GEMINI.md
+package-lock.json
+package.json

@@ -6,6 +6,19 @@
 *   **create_time**: datetime (创建时间)
 *   **data**: json (其他游戏数据，例如 `{}`)            
 
+## 错误码定义 (Lobby Server)
+范围: -2000 ~ -2999 (遵循 login_server 风格)
+
+| 错误码 | 常量名 | 描述 |
+| :--- | :--- | :--- |
+| 0 | LOBBY_ERR_OK | 成功 |
+| -2000 | LOBBY_ERR_API_BAD_REQ | 请求参数错误 |
+| -2001 | LOBBY_ERR_API_INTERNAL_ERROR | 服务器内部错误 |
+| -2200 | LOBBY_ERR_API_DB_ERROR | 数据库操作失败 |
+| -2201 | LOBBY_ERR_PLAYER_EXISTS | 玩家已存在 (如昵称重名) |
+| -2202 | LOBBY_ERR_PLAYER_NOT_EXISTS | 玩家不存在 |
+| -2300 | LOBBY_ERR_MATCH_FAILED | 匹配失败 |
+
 ## 接口协议 (Protobuf)
 所有客户端与网关交互的包体遵循 `[包长(2 bytes)][CmdID(2 bytes)][Protobuf字节流]` 格式。以下是 Payload 的 Protobuf 定义和 CmdID 映射。
 

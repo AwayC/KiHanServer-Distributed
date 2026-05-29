@@ -1,5 +1,6 @@
 #include "lobby_service.h"
 #include "db_manager.h"
+#include "err_code.h"
 #include <iostream>
 
 using grpc::Status;
@@ -44,7 +45,7 @@ void LobbyServiceImpl::HandleLogin(const GatewayRequest* req, GatewayResponse* r
     
     if (data) {
         LoginRsp login_rsp;
-        login_rsp.set_err_code(0);
+        login_rsp.set_err_code(LOBBY_ERR_OK);
         
         auto* p_info = login_rsp.mutable_player();
         p_info->set_uid(data->uid);
@@ -70,7 +71,7 @@ void LobbyServiceImpl::HandleCreateRole(const GatewayRequest* req, GatewayRespon
     bool success = DBManager::GetInstance().CreatePlayer(req->uid(), create_req.nickname());
 
     CreateRoleRsp create_rsp;
-    create_rsp.set_err_code(success ? 0 : -1);
+    create_rsp.set_err_code(success ? LOBBY_ERR_OK : LOBBY_ERR_PLAYER_EXISTS); // Assuming failure is mostly name taken
 
     rsp->set_cmd_id(1003);
     create_rsp.SerializeToString(rsp->mutable_payload());
@@ -78,7 +79,7 @@ void LobbyServiceImpl::HandleCreateRole(const GatewayRequest* req, GatewayRespon
 
 void LobbyServiceImpl::HandleLogout(const GatewayRequest* req, GatewayResponse* rsp) {
     LogoutRsp logout_rsp;
-    logout_rsp.set_err_code(0);
+    logout_rsp.set_err_code(LOBBY_ERR_OK);
     
     rsp->set_cmd_id(1002);
     rsp->set_kick_client(true);
@@ -94,7 +95,7 @@ void LobbyServiceImpl::HandleMatchGame(const GatewayRequest* req, GatewayRespons
     std::cout << "Player " << req->uid() << " queuing with char_id: " << match_req.character_id() << std::endl;
 
     MatchGameRsp match_rsp;
-    match_rsp.set_err_code(0);
+    match_rsp.set_err_code(LOBBY_ERR_OK);
 
     rsp->set_cmd_id(1005);
     match_rsp.SerializeToString(rsp->mutable_payload());
@@ -102,7 +103,7 @@ void LobbyServiceImpl::HandleMatchGame(const GatewayRequest* req, GatewayRespons
 
 void LobbyServiceImpl::HandleMatchStop(const GatewayRequest* req, GatewayResponse* rsp) {
     MatchStopRsp stop_rsp;
-    stop_rsp.set_err_code(0);
+    stop_rsp.set_err_code(LOBBY_ERR_OK);
     stop_rsp.set_success(true);
 
     rsp->set_cmd_id(1006);
@@ -114,13 +115,13 @@ void LobbyServiceImpl::HandleGetPlayerData(const GatewayRequest* req, GatewayRes
     
     GetPlayerDataRsp p_rsp;
     if (data) {
-        p_rsp.set_err_code(0);
+        p_rsp.set_err_code(LOBBY_ERR_OK);
         auto* p_info = p_rsp.mutable_player();
         p_info->set_uid(data->uid);
         p_info->set_nickname(data->nickname);
         p_info->set_data_json(data->data_json);
     } else {
-        p_rsp.set_err_code(-1); // Player not found or DB error
+        p_rsp.set_err_code(LOBBY_ERR_PLAYER_NOT_EXISTS);
     }
 
     rsp->set_cmd_id(1008);

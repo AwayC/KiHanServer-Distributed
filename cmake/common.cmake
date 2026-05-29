@@ -42,12 +42,12 @@ function(kihan_generate_proto GEN_SRCS GEN_HDRS)
         add_custom_command(
             OUTPUT "${P_SRC}" "${P_HDR}" "${G_SRC}" "${G_HDR}"
             COMMAND ${_PROTOBUF_PROTOC}
-            ARGS --grpc_out="${PROTO_GEN_DIR}"
-                 --cpp_out="${PROTO_GEN_DIR}"
-                 -I "${ABS_PATH}"
+            ARGS --grpc_out=${PROTO_GEN_DIR}
+                 --cpp_out=${PROTO_GEN_DIR}
+                 -I ${ABS_PATH}
                  --plugin=protoc-gen-grpc=${_GRPC_CPP_PLUGIN_EXECUTABLE}
-                 "${ABS_FIL}"
-            DEPENDS "${ABS_FIL}"
+                 ${ABS_FIL}
+            DEPENDS ${ABS_FIL}
             COMMENT "Generating gRPC/Protobuf code for ${FIL_WE}"
             VERBATIM
         )
