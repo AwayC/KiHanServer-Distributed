@@ -22,12 +22,15 @@ void RunServer() {
 }
 
 int main(int argc, char** argv) {
+    std::cout << "[Main] LobbyServer starting..." << std::endl;
     // In a real application, you would load these parameters from config.json
     // For this boilerplate, we'll hardcode the localhost DB connection
-    if (!DBManager::GetInstance().Init("127.0.0.1", 3306, "root", "123456", "kihan_db")) {
-        std::cerr << "Failed to initialize database. Exiting..." << std::endl;
+    std::cout << "[Main] Initializing Database (127.0.0.1:33060)..." << std::endl;
+    if (!DBManager::GetInstance().Init("127.0.0.1", 33060, "root", "123456", "kihan_db")) {
+        std::cerr << "[Main] Failed to initialize database. Exiting..." << std::endl;
         return 1;
     }
+    std::cout << "[Main] Database initialized successfully." << std::endl;
 
     RunServer();
     return 0;

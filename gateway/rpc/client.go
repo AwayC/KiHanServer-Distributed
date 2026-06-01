@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gateway/pb"
 	"log"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -40,11 +41,15 @@ func InitRPCManager(lobbyAddr, gameAddr string) error {
 }
 
 func (m *RPCManager) RouteToLobby(req *pb.GatewayRequest) (*pb.GatewayResponse, error) {
-	return m.lobbyClient.HandleRequest(context.Background(), req)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return m.lobbyClient.HandleRequest(ctx, req)
 }
 
 func (m *RPCManager) NotifyDisconnect(req *pb.GatewayRequest) error {
-	_, err := m.lobbyClient.ClientDisconnect(context.Background(), req)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err := m.lobbyClient.ClientDisconnect(ctx, req)
 	return err
 }
 

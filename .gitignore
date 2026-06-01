@@ -24,6 +24,7 @@ lobby_server/cmake-build-debug/
 
 # Go Generated files
 gateway/pb/*.pb.go
+gateway/gateway
 
 # Protobuf/gRPC Generated files
 *.pb.cc

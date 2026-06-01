@@ -2,8 +2,9 @@ package network
 
 import (
 	"math/rand"
-	"net"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 var DefaultManager *SessionManager
@@ -22,7 +23,7 @@ func NewSessionManager() *SessionManager {
 	}
 }
 
-func (m *SessionManager) AddSession(token string, uid string, tcpConn net.Conn) *Session {
+func (m *SessionManager) AddSession(token string, uid string, wsConn *websocket.Conn) *Session {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -36,7 +37,7 @@ func (m *SessionManager) AddSession(token string, uid string, tcpConn net.Conn) 
 	
 	key := rand.Uint32()
 	
-	s := NewSession(id, key, token, uid, tcpConn)
+	s := NewSession(id, key, token, uid, wsConn)
 	m.sessions[id] = s
 	return s
 }

@@ -1,10 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
 
-# 如果没设置工具链但定义了 VCPKG_ROOT，自动关联 vcpkg
-if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
-endif()
-
 project(lobby_server CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -13,30 +8,30 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 引入全局公共 CMake 逻辑 (gRPC, Protobuf via vcpkg)
 include("../cmake/common.cmake")
 
-# --- 智能跨平台寻找 MySQL Connector/C++ (手动路径优先) ---
-if(APPLE)
-    # Mac Homebrew 默认路径
-    set(MYSQL_CONNECTOR_DIR "/opt/homebrew/opt/mysql-connector-c++")
-else()
-    # Ubuntu/Linux 手动下载部署的路径
-    set(MYSQL_CONNECTOR_DIR "/opt/mysql-connector-cpp")
-endif()
-
+# ---  MySQL Connector/C++ (手动路径优先) ---
 find_path(MYSQL_CONNECTOR_INCLUDE_DIR mysqlx/xdevapi.h
-    HINTS ${MYSQL_CONNECTOR_DIR}/include
+    HINTS
+        /opt/homebrew/opt/mysql-connector-c++/include   # Mac Homebrew 路径
+        /usr/include/mysql-cppconn                      # Ubuntu deb 包真实路径
 )
 
-# Linux 下库名通常包含版本号，这里加入更多候选名字
 find_library(MYSQL_CONNECTOR_LIBRARY 
-    NAMES mysqlcppconn8 mysqlcppconnx mysqlcppconn8-static
-    HINTS ${MYSQL_CONNECTOR_DIR}/lib64 ${MYSQL_CONNECTOR_DIR}/lib
+    NAMES mysqlcppconnx mysqlcppconn8 mysqlcppconnx-static mysqlcppconn8-static
+    HINTS
+        /opt/homebrew/opt/mysql-connector-c++/lib       # Mac Homebrew 路径
+        /usr/lib/x86_64-linux-gnu                       # Ubuntu deb 包真实标准库路径
+        /usr/lib
 )
 
+# 3. 校验并打印
 if (MYSQL_CONNECTOR_INCLUDE_DIR AND MYSQL_CONNECTOR_LIBRARY)
-    message(STATUS "Found MySQL Connector/C++: ${MYSQL_CONNECTOR_INCLUDE_DIR}")
-    message(STATUS "Library Path: ${MYSQL_CONNECTOR_LIBRARY}")
+    message(STATUS "成功找到 MySQL Connector/C++ !")
+    message(STATUS "头文件路径: ${MYSQL_CONNECTOR_INCLUDE_DIR}")
+    message(STATUS "库文件路径: ${MYSQL_CONNECTOR_LIBRARY}")
 else()
-    message(FATAL_ERROR "MySQL Connector/C++ not found! \nMac: brew install mysql-connector-c++\nUbuntu: Download to ${MYSQL_CONNECTOR_DIR}")
+    message(FATAL_ERROR "未找到 MySQL Connector/C++！\n"
+                        "Mac 请运行: brew install mysql-connector-c++\n"
+                        "Ubuntu 请运行: sudo apt install libmysqlcppconn-dev")
 endif()
 
 # 编译业务 Proto 文件

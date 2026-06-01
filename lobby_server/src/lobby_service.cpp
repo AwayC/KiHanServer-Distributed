@@ -21,6 +21,7 @@ Status LobbyServiceImpl::HandleRequest(ServerContext* context, const GatewayRequ
         case 1005: HandleMatchGame(request, response); break;
         case 1006: HandleMatchStop(request, response); break;
         case 1008: HandleGetPlayerData(request, response); break;
+        case 1009: HandleGetOnlineCount(request, response); break;
         default:
             std::cerr << "[Lobby] Unknown cmd_id: " << cmd_id << std::endl;
             break;
@@ -31,35 +32,45 @@ Status LobbyServiceImpl::HandleRequest(ServerContext* context, const GatewayRequ
 
 Status LobbyServiceImpl::ClientDisconnect(ServerContext* context, const GatewayRequest* request, GatewayResponse* response) {
     std::cout << "[Lobby] Client disconnected - uid: " << request->uid() << " conn_id: " << request->conn_id() << std::endl;
+    
+    std::lock_guard<std::mutex> lock(online_mutex_);
+    online_players_.erase(request->uid());
+    
     return Status::OK;
 }
 
 void LobbyServiceImpl::HandleLogin(const GatewayRequest* req, GatewayResponse* rsp) {
     LoginReq login_req;
     if (!login_req.ParseFromString(req->payload())) {
-        std::cerr << "Failed to parse LoginReq" << std::endl;
+        std::cerr << "[Lobby] Failed to parse LoginReq for UID: " << req->uid() << std::endl;
         return;
     }
 
     auto data = DBManager::GetInstance().GetPlayerData(req->uid());
     
-    if (data) {
-        LoginRsp login_rsp;
+    LoginRsp login_rsp;
+    // Check if player exists AND has a non-empty nickname
+    if (data && !data->nickname.empty()) {
+        {
+            std::lock_guard<std::mutex> lock(online_mutex_);
+            online_players_.insert(req->uid());
+        }
+
         login_rsp.set_err_code(LOBBY_ERR_OK);
-        
         auto* p_info = login_rsp.mutable_player();
         p_info->set_uid(data->uid);
         p_info->set_nickname(data->nickname);
         p_info->set_data_json(data->data_json);
         
-        rsp->set_cmd_id(1001);
-        login_rsp.SerializeToString(rsp->mutable_payload());
+        std::cout << "[Lobby] Login Success: UID=" << data->uid << ", Nickname=" << data->nickname << std::endl;
     } else {
-        // Return CreateRoleNtf (CmdID 1004)
-        CreateRoleNtf ntf;
-        rsp->set_cmd_id(1004);
-        ntf.SerializeToString(rsp->mutable_payload());
+        // Explicitly return NOT_EXISTS error code so client knows to show creation panel
+        login_rsp.set_err_code(LOBBY_ERR_PLAYER_NOT_EXISTS);
+        std::cout << "[Lobby] Login Failed: Player record not found or nickname empty. Sending LOBBY_ERR_PLAYER_NOT_EXISTS to UID=" << req->uid() << std::endl;
     }
+
+    rsp->set_cmd_id(1001); // Always respond with 1001 to match client's request
+    login_rsp.SerializeToString(rsp->mutable_payload());
 }
 
 void LobbyServiceImpl::HandleCreateRole(const GatewayRequest* req, GatewayResponse* rsp) {
@@ -78,6 +89,11 @@ void LobbyServiceImpl::HandleCreateRole(const GatewayRequest* req, GatewayRespon
 }
 
 void LobbyServiceImpl::HandleLogout(const GatewayRequest* req, GatewayResponse* rsp) {
+    {
+        std::lock_guard<std::mutex> lock(online_mutex_);
+        online_players_.erase(req->uid());
+    }
+
     LogoutRsp logout_rsp;
     logout_rsp.set_err_code(LOBBY_ERR_OK);
     
@@ -126,4 +142,17 @@ void LobbyServiceImpl::HandleGetPlayerData(const GatewayRequest* req, GatewayRes
 
     rsp->set_cmd_id(1008);
     p_rsp.SerializeToString(rsp->mutable_payload());
+}
+
+void LobbyServiceImpl::HandleGetOnlineCount(const GatewayRequest* req, GatewayResponse* rsp) {
+    GetOnlineCountRsp count_rsp;
+    count_rsp.set_err_code(LOBBY_ERR_OK);
+    
+    {
+        std::lock_guard<std::mutex> lock(online_mutex_);
+        count_rsp.set_online_count(static_cast<int32_t>(online_players_.size()));
+    }
+
+    rsp->set_cmd_id(1009);
+    count_rsp.SerializeToString(rsp->mutable_payload());
 }

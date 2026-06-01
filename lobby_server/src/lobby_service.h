@@ -4,6 +4,8 @@
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/support/status.h>
 #include <grpcpp/impl/codegen/service_type.h> // 显式包含以解决“类型不完整”问题
+#include <unordered_set>
+#include <mutex>
 
 #include "router.grpc.pb.h"
 #include "client_lobby.pb.h"
@@ -25,4 +27,9 @@ private:
     void HandleMatchStop(const kihan::internal::GatewayRequest* req, kihan::internal::GatewayResponse* rsp);
     void HandleLogout(const kihan::internal::GatewayRequest* req, kihan::internal::GatewayResponse* rsp);
     void HandleGetPlayerData(const kihan::internal::GatewayRequest* req, kihan::internal::GatewayResponse* rsp);
+    void HandleGetOnlineCount(const kihan::internal::GatewayRequest* req, kihan::internal::GatewayResponse* rsp);
+
+private:
+    std::unordered_set<std::string> online_players_;
+    std::mutex online_mutex_;
 };

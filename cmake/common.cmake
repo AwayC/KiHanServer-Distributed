@@ -1,8 +1,8 @@
 # cmake/common.cmake
 
 # 1. 寻找核心依赖 (gRPC, Protobuf)
-find_package(gRPC CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
 # 定义全局路径变量 (参考官方样例)

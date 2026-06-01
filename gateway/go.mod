@@ -3,6 +3,7 @@ module gateway
 go 1.26.3
 
 require (
+	github.com/gorilla/websocket v1.5.3
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/xtaci/kcp-go/v5 v5.6.72
 	google.golang.org/grpc v1.81.1

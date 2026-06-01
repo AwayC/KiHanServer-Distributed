@@ -20,7 +20,12 @@
 | -2300 | LOBBY_ERR_MATCH_FAILED | 匹配失败 |
 
 ## 接口协议 (Protobuf)
-所有客户端与网关交互的包体遵循 `[包长(2 bytes)][CmdID(2 bytes)][Protobuf字节流]` 格式。以下是 Payload 的 Protobuf 定义和 CmdID 映射。
+网关支持 WebSocket 和 KCP/UDP 两种通道。**所有业务包体格式依据通道不同有所区分**。
+
+*   **WebSocket 通道 (常用)**: 依赖自身消息边界，无需长度前缀。格式为：`[CmdID(2 bytes)][Protobuf字节流]`
+*   **KCP 流通道**: 属于字节流，需要解决粘包。格式为：`[包长(2 bytes)][CmdID(2 bytes)][Protobuf字节流]` (包长 = 2 + Protobuf字节流长度)
+
+以下是 Payload 的 Protobuf 定义和 CmdID 映射。
 
 ---
 
@@ -102,3 +107,11 @@ message PlayerInfo {
 *   **响应: GetPlayerDataRsp**
     *   描述：返回玩家详细信息。
     *   Payload：`message GetPlayerDataRsp { int32 err_code = 1; PlayerInfo player = 2; }`
+
+### CmdID: 1009 - 获取在线人数
+*   **请求: GetOnlineCountReq**
+    *   描述：获取当前大厅在线的总玩家人数。
+    *   Payload：`message GetOnlineCountReq {}` (空)
+*   **响应: GetOnlineCountRsp**
+    *   描述：在线人数响应。
+    *   Payload：`message GetOnlineCountRsp { int32 err_code = 1; int32 online_count = 2; }`

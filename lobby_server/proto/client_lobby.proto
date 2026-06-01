@@ -61,3 +61,10 @@ message GetPlayerDataRsp {
     int32 err_code = 1;
     PlayerInfo player = 2;
 }
+
+// CmdID: 1009
+message GetOnlineCountReq {}
+message GetOnlineCountRsp {
+    int32 err_code = 1;
+    int32 online_count = 2;
+}

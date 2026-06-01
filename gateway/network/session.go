@@ -1,6 +1,7 @@
 package network
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
@@ -9,6 +10,7 @@ import (
 
 	"gateway/pb"
 	"gateway/rpc"
+	"github.com/gorilla/websocket"
 	"github.com/xtaci/kcp-go/v5"
 )
 
@@ -18,7 +20,7 @@ type Session struct {
 	Token string
 	UID   string
 
-	TCPConn net.Conn
+	WSConn *websocket.Conn
 
 	mu            sync.RWMutex
 	UDPAddr       *net.UDPAddr
@@ -27,13 +29,13 @@ type Session struct {
 	LastHeartbeat time.Time
 }
 
-func NewSession(id uint32, key uint32, token string, uid string, tcpConn net.Conn) *Session {
+func NewSession(id uint32, key uint32, token string, uid string, wsConn *websocket.Conn) *Session {
 	return &Session{
 		ID:            id,
 		Key:           key,
 		Token:         token,
 		UID:           uid,
-		TCPConn:       tcpConn,
+		WSConn:        wsConn,
 		Connected:     true,
 		LastHeartbeat: time.Now(),
 	}
@@ -58,7 +60,8 @@ func (s *Session) SetKCPConn(conn *kcp.UDPSession) {
 	s.KCPConn = conn
 }
 
-// Channel 0: TCP, Channel 1: KCP, Channel 2: Raw UDP
+// Channel 0: WebSocket, Channel 1: KCP, Channel 2: Raw UDP
+// Note: 'data' here is expected to be [CmdID(2 bytes)][Payload bytes...]
 func (s *Session) Send(channel int, data []byte) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -70,10 +73,16 @@ func (s *Session) Send(channel int, data []byte) error {
 	switch channel {
 	case 1:
 		if s.KCPConn != nil {
-			_, err := s.KCPConn.Write(data)
+			// For KCP we still need length prefix framing
+			// Since 'data' already contains CmdID and Payload, we just prepend the length
+			totalLen := uint16(len(data))
+			buf := make([]byte, 2+totalLen)
+			binary.BigEndian.PutUint16(buf[0:2], totalLen)
+			copy(buf[2:], data)
+			_, err := s.KCPConn.Write(buf)
 			return err
 		}
-		// Fallback to TCP if KCP not ready
+		// Fallback to WebSocket if KCP not ready
 		fallthrough
 	case 2:
 		if s.UDPAddr != nil && DefaultManager != nil && DefaultManager.UDPServer != nil {
@@ -82,14 +91,13 @@ func (s *Session) Send(channel int, data []byte) error {
 			_, err := DefaultManager.UDPServer.ConnObj.WriteToUDP(full, s.UDPAddr)
 			return err
 		}
-		// Fallback to TCP
+		// Fallback to WebSocket
 		fallthrough
 	case 0:
 		fallthrough
 	default:
-		// TODO: Add length prefix framing for TCP
-		_, err := s.TCPConn.Write(data)
-		return err
+		// WebSocket doesn't need length framing
+		return s.WSConn.WriteMessage(websocket.BinaryMessage, data)
 	}
 }
 
@@ -98,6 +106,8 @@ func (s *Session) DispatchPacket(cmdID uint16, payload []byte) {
 		log.Println("RPC Manager not initialized")
 		return
 	}
+
+	log.Printf("[Session %d] Dispatching Packet: CmdID=%d, UID=%s, PayloadLen=%d\n", s.ID, cmdID, s.UID, len(payload))
 
 	req := &pb.GatewayRequest{
 		ConnId:  s.ID,
@@ -108,29 +118,32 @@ func (s *Session) DispatchPacket(cmdID uint16, payload []byte) {
 
 	// Simple routing logic: CmdID < 2000 -> Lobby, else -> Game
 	if cmdID < 2000 {
+		log.Printf("[Session %d] Routing to Lobby...\n", s.ID)
 		resp, err := rpc.DefaultRPCManager.RouteToLobby(req)
 		if err != nil {
-			log.Printf("Lobby RPC error for ID %d: %v\n", s.ID, err)
+			log.Printf("[Session %d] Lobby RPC error: %v\n", s.ID, err)
 			return
 		}
 		
 		if resp != nil {
-			// Send response back to client via best channel
-			// If it's a critical lobby message, we can force channel 0 (TCP), 
-			// but for now let's just use channel 1 (KCP preferred, fallback to TCP)
-			outFrame := EncodeAppFrame(uint16(resp.CmdId), resp.Payload)
+			log.Printf("[Session %d] Received Lobby response: CmdID=%d, PayloadLen=%d, Kick=%v\n", s.ID, resp.CmdId, len(resp.Payload), resp.KickClient)
+			// Construct frame without length prefix: [CmdID(2)][Payload]
+			outFrame := make([]byte, 2+len(resp.Payload))
+			binary.BigEndian.PutUint16(outFrame[0:2], uint16(resp.CmdId))
+			copy(outFrame[2:], resp.Payload)
+
+			// Try KCP (channel 1), will fallback to WS (channel 0)
 			s.Send(1, outFrame)
 
 			if resp.KickClient {
 				s.Close()
 			}
+		} else {
+			log.Printf("[Session %d] Lobby returned empty response\n", s.ID)
 		}
 	} else {
 		// Route to Game Server
-		// For stream we might need a persistent stream per session,
-		// but for now we do a simple unary-like push if using stream.
-		// A full implementation would manage a stream per session.
-		// This is a placeholder for the stream integration.
+		log.Printf("[Session %d] Routing to GameServer (TODO)...\n", s.ID)
 		fmt.Printf("TODO: Route CmdID %d to GameServer via Stream\n", cmdID)
 	}
 }
@@ -148,12 +161,12 @@ func (s *Session) Close() {
 		go rpc.DefaultRPCManager.NotifyDisconnect(&pb.GatewayRequest{
 			ConnId: s.ID,
 			Uid:    s.UID,
-			CmdId:  0, // 0 can signify disconnect or unused
+			CmdId:  0,
 		})
 	}
 
-	if s.TCPConn != nil {
-		s.TCPConn.Close()
+	if s.WSConn != nil {
+		s.WSConn.Close()
 	}
 	if s.KCPConn != nil {
 		s.KCPConn.Close()

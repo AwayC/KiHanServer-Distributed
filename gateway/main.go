@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -45,14 +46,17 @@ func main() {
 	udpServer.Start()
 	fmt.Println("UDP/KCP Server listening on", udpAddr)
 
-	// 5. Start TCP Server
-	tcpAddr := fmt.Sprintf("%s:%d", cfg.Gateway.Ip, cfg.Gateway.Port)
-	tcpServer := network.NewTCPServer(tcpAddr, rdb, cfg.Gateway.Port)
+	// 5. Start WebSocket Server
+	wsServer := network.NewWSServer(rdb, cfg.Gateway.Port)
+	http.Handle("/ws", wsServer)
+	
+	wsAddr := fmt.Sprintf("%s:%d", cfg.Gateway.Ip, cfg.Gateway.Port)
 	go func() {
-		if err := tcpServer.Start(); err != nil {
-			panic("Failed to start TCP server: " + err.Error())
+		if err := http.ListenAndServe(wsAddr, nil); err != nil {
+			panic("Failed to start WebSocket server: " + err.Error())
 		}
 	}()
+	fmt.Println("WebSocket Server listening on", wsAddr)
 
 	// 5.5 Start Redis Pub/Sub for Kicking users
 	go func() {

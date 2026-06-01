@@ -1,9 +1,17 @@
 #include "db_manager.h"
+#include <sstream>
 
 bool DBManager::Init(const std::string& host, int port, const std::string& user, const std::string& password, const std::string& dbname) {
     try {
-        // X DevAPI uses a session-based approach
-        session_ = std::make_unique<mysqlx::Session>(host, port, user, password, dbname);
+        db_name_ = dbname;
+        std::cout << "[DB] Connecting to MySQL at " << host << ":" << port << "..." << std::endl;
+        // Connect without a default schema first to ensure connection works
+        session_ = std::make_unique<mysqlx::Session>(host, port, user, password);
+        
+        // Create database if not exists
+        session_->sql("CREATE DATABASE IF NOT EXISTS " + dbname).execute();
+        // Switch to the database
+        session_->sql("USE " + dbname).execute();
         
         // Create table if not exists using SQL execute
         session_->sql(R"(
@@ -15,13 +23,13 @@ bool DBManager::Init(const std::string& host, int port, const std::string& user,
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         )").execute();
 
-        std::cout << "Database initialized successfully (X DevAPI via Homebrew Path)." << std::endl;
+        std::cout << "[DB] Database and table initialized successfully." << std::endl;
         return true;
     } catch (const mysqlx::Error &err) {
-        std::cerr << "Database Init Error: " << err.what() << std::endl;
+        std::cerr << "[DB] Database Init Error: " << err.what() << std::endl;
         return false;
     } catch (const std::exception &ex) {
-        std::cerr << "Database Init Exception: " << ex.what() << std::endl;
+        std::cerr << "[DB] Database Init Exception: " << ex.what() << std::endl;
         return false;
     }
 }
@@ -30,7 +38,7 @@ bool DBManager::PlayerExists(const std::string& uid) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!session_) return false;
     try {
-        auto schema = session_->getSchema("kihan_db");
+        auto schema = session_->getSchema(db_name_);
         auto table = schema.getTable("kihan_game_players");
         auto res = table.select("1").where("uid = :uid").bind("uid", uid).execute();
         return res.count() > 0;
@@ -44,11 +52,21 @@ bool DBManager::CreatePlayer(const std::string& uid, const std::string& nickname
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!session_) return false;
     try {
-        auto schema = session_->getSchema("kihan_db");
-        auto table = schema.getTable("kihan_game_players");
-        table.insert("uid", "nickname", "data")
-             .values(uid, nickname, "{}")
-             .execute();
+        session_->sql("USE " + db_name_).execute();
+        
+        // Use INSERT ... ON DUPLICATE KEY UPDATE to allow setting nickname 
+        // if a record with this UID already exists but was incomplete.
+        // Also initialize battle stats here.
+        session_->sql(R"(
+            INSERT INTO kihan_game_players (uid, nickname, data) 
+            VALUES (?, ?, ?) 
+            ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), data = VALUES(data)
+        )")
+        .bind(uid)
+        .bind(nickname)
+        .bind(R"({"total_battle_count": 0, "win_count": 0})")
+        .execute();
+        
         return true;
     } catch (const mysqlx::Error &err) {
         std::cerr << "CreatePlayer Error: " << err.what() << std::endl;
@@ -56,11 +74,27 @@ bool DBManager::CreatePlayer(const std::string& uid, const std::string& nickname
     }
 }
 
+std::string DBManager::valToString(const mysqlx::Value& val) {
+    if (val.isNull()) return "";
+    std::stringstream ss;
+    ss << val;
+    std::string s = ss.str();
+    
+    // X DevAPI stringstream for strings might wrap them in double quotes
+    // if they are not already JSON. We want the raw string for uid/nickname.
+    // However, for JSON objects, we WANT the quotes/structure.
+    // A simple check: if it starts and ends with ", and it's a string type.
+    if (val.getType() == mysqlx::Value::STRING && s.length() >= 2 && s.front() == '"' && s.back() == '"') {
+        return s.substr(1, s.length() - 2);
+    }
+    return s;
+}
+
 std::unique_ptr<PlayerData> DBManager::GetPlayerData(const std::string& uid) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!session_) return nullptr;
     try {
-        auto schema = session_->getSchema("kihan_db");
+        auto schema = session_->getSchema(db_name_);
         auto table = schema.getTable("kihan_game_players");
         auto res = table.select("uid", "nickname", "data")
                         .where("uid = :uid")
@@ -71,11 +105,11 @@ std::unique_ptr<PlayerData> DBManager::GetPlayerData(const std::string& uid) {
         if (!row) return nullptr;
 
         auto data = std::make_unique<PlayerData>();
-        data->uid = (std::string)row[0];
-        data->nickname = (std::string)row[1];
+        data->uid = valToString(row[0]);
+        data->nickname = valToString(row[1]);
         
         if (!row[2].isNull()) {
-            data->data_json = (std::string)row[2];
+            data->data_json = valToString(row[2]);
         } else {
             data->data_json = "{}";
         }
@@ -84,5 +118,32 @@ std::unique_ptr<PlayerData> DBManager::GetPlayerData(const std::string& uid) {
     } catch (const mysqlx::Error &err) {
         std::cerr << "GetPlayerData Error: " << err.what() << std::endl;
         return nullptr;
+    }
+}
+
+bool DBManager::UpdateBattleStats(const std::string& uid, bool is_win) {
+    std::lock_guard<std::mutex> lock(db_mutex_);
+    if (!session_) return false;
+    try {
+        // Switch to the correct schema
+        session_->sql("USE " + db_name_).execute();
+        
+        // Use SQL to atomically update JSON fields
+        int win_inc = is_win ? 1 : 0;
+        
+        session_->sql(R"(
+            UPDATE kihan_game_players 
+            SET data = JSON_SET(
+                IFNULL(data, '{}'), 
+                '$.total_battle_count', CAST(IFNULL(JSON_EXTRACT(data, '$.total_battle_count'), 0) AS UNSIGNED) + 1,
+                '$.win_count', CAST(IFNULL(JSON_EXTRACT(data, '$.win_count'), 0) AS UNSIGNED) + ?
+            ) 
+            WHERE uid = ?;
+        )").bind(win_inc).bind(uid).execute();
+        
+        return true;
+    } catch (const mysqlx::Error &err) {
+        std::cerr << "UpdateBattleStats Error: " << err.what() << std::endl;
+        return false;
     }
 }

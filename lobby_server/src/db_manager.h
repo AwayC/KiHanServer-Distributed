@@ -30,10 +30,16 @@ public:
     // Fetch full player data
     std::unique_ptr<PlayerData> GetPlayerData(const std::string& uid);
 
+    // Update battle statistics in JSON data field
+    bool UpdateBattleStats(const std::string& uid, bool is_win);
+
 private:
     DBManager() = default;
     ~DBManager() = default;
 
+    std::string valToString(const mysqlx::Value& val);
+
     std::unique_ptr<mysqlx::Session> session_;
+    std::string db_name_;
     std::mutex db_mutex_;
 };
