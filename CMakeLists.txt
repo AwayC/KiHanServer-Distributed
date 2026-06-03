@@ -4,3 +4,4 @@ project(KiHanServer CXX)
 include(cmake/common.cmake)
 
 add_subdirectory(lobby_server)
+add_subdirectory(game_server)

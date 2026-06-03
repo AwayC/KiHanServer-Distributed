@@ -147,6 +147,7 @@ void LobbyServiceImpl::HandleGetPlayerData(const GatewayRequest* req, GatewayRes
 void LobbyServiceImpl::HandleGetOnlineCount(const GatewayRequest* req, GatewayResponse* rsp) {
     GetOnlineCountRsp count_rsp;
     count_rsp.set_err_code(LOBBY_ERR_OK);
+    std::cout << "[Lobby] GetOnlineCount" << std::endl;
     
     {
         std::lock_guard<std::mutex> lock(online_mutex_);

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package kihan.internal;
+
+message PlayerInfo {
+    string uid = 1;
+    string nickname = 2;
+    int32 character_id = 3;
+}
+
+message CreateRoomReq {
+    PlayerInfo p1 = 1;
+    PlayerInfo p2 = 2;
+}
+
+message CreateRoomRsp {
+    int32 err_code = 1;
+    int32 room_id = 2;
+}
+
+message GameResultNtf {
+    int32 room_id = 1;
+    string p1_uid = 2;
+    string p2_uid = 3;
+    string winner_uid = 4; // 0 or empty for draw
+}
+
+service GameControlService {
+    // Lobby -> Game
+    rpc CreateRoom(CreateRoomReq) returns (CreateRoomRsp);
+}
+
+// In case Game needs to call Lobby (ReportGameResult)
+service LobbyControlService {
+    rpc ReportGameResult(GameResultNtf) returns (CreateRoomRsp); // Reuse CreateRoomRsp for simple err_code
+}

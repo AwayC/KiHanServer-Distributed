@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package kihan.api;
+
+// 2001
+message EnterRoomReq {
+    int32 room_id = 1;
+}
+
+message RoomSnapshot {
+    int32 room_id = 1;
+    string player_list_json = 2;
+}
+
+message EnterRoomRsp {
+    int32 err_code = 1;
+    RoomSnapshot snapshot = 2;
+    int32 my_game_id = 3;
+}
+
+// 2002
+message PlayerReadyReq {
+    int32 room_id = 1;
+}
+
+message PlayerReadyRsp {
+    int32 err_code = 1;
+}
+
+// 2003
+message GameStartNtf {
+    int32 room_id = 1;
+}
+
+// 2004
+message InputFrame {
+    uint32 frame_id = 1;
+    uint32 joystick = 2;
+    uint32 buttons = 3;
+}
+
+message PlayerFrameInput {
+    InputFrame input = 1;
+}
+
+// 2005
+message RoomFrame {
+    uint32 frame_id = 1;
+    uint32 player_count = 2;
+    map<int32, InputFrame> inputs = 3; // key: game_id
+}
+
+message RoomFrameUpdate {
+    RoomFrame frame = 1;
+}
+
+// 2006
+message GameOverReq {
+    int32 room_id = 1;
+    string winner_uid = 2;
+    int32 p1_hp = 3;
+    int32 p2_hp = 4;
+}
+
+message GameOverRsp {
+    int32 err_code = 1;
+}
+
+// 2007
+message GameOverNtf {
+    int32 room_id = 1;
+    string winner_uid = 2;
+}
