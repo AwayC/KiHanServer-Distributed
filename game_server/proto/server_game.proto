@@ -2,15 +2,8 @@ syntax = "proto3";
 
 package kihan.internal;
 
-message PlayerInfo {
-    string uid = 1;
-    string nickname = 2;
-    int32 character_id = 3;
-}
-
 message CreateRoomReq {
-    PlayerInfo p1 = 1;
-    PlayerInfo p2 = 2;
+    string player_list_json = 1;
 }
 
 message CreateRoomRsp {
@@ -20,9 +13,9 @@ message CreateRoomRsp {
 
 message GameResultNtf {
     int32 room_id = 1;
-    string p1_uid = 2;
-    string p2_uid = 3;
-    string winner_uid = 4; // 0 or empty for draw
+    uint32 p1_uid = 2;
+    uint32 p2_uid = 3;
+    uint32 winner_uid = 4; // 0 for draw
 }
 
 service GameControlService {

@@ -18,6 +18,12 @@ kihan_generate_proto(GAME_PROTO_SRCS GAME_PROTO_HDRS
 # Source files
 file(GLOB_RECURSE SRC_FILES "src/*.cpp")
 
+include(FetchContent)
+FetchContent_Declare(json
+  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+)
+FetchContent_MakeAvailable(json)
+
 # Create executable
 add_executable(game_server
     ${SRC_FILES}
@@ -31,6 +37,7 @@ target_link_libraries(game_server
     gRPC::grpc
     protobuf::libprotobuf
     Threads::Threads
+    nlohmann_json::nlohmann_json
 )
 
 # Include directories

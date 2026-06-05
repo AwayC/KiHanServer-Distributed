@@ -38,10 +38,17 @@ endif()
 kihan_generate_proto(LOBBY_PROTO_SRCS LOBBY_PROTO_HDRS 
     "proto/client_lobby.proto" 
     "proto/router.proto"
+    "../game_server/proto/server_game.proto"
 )
 
 # 源代码文件
 file(GLOB_RECURSE SRC_FILES "src/*.cpp")
+
+include(FetchContent)
+FetchContent_Declare(json
+  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+)
+FetchContent_MakeAvailable(json)
 
 # 创建可执行程序
 add_executable(lobby_server
@@ -57,6 +64,7 @@ target_link_libraries(lobby_server
     protobuf::libprotobuf
     ${MYSQL_CONNECTOR_LIBRARY}
     Threads::Threads
+    nlohmann_json::nlohmann_json
 )
 
 # 包含目录

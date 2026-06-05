@@ -3,6 +3,8 @@
 #include <chrono>
 #include <iostream>
 
+const int POLL_DURATION = 2;
+
 void RoomManager::RunLoop() {
     running_ = true;
     auto next_tick = std::chrono::steady_clock::now();
@@ -58,12 +60,12 @@ void RoomManager::RemoveRoom(int32_t room_id) {
     rooms_.erase(room_id);
 }
 
-void RoomManager::RegisterSession(const std::string& uid, std::shared_ptr<SessionStream> stream) {
+void RoomManager::RegisterSession(uint32_t uid, std::shared_ptr<SessionStream> stream) {
     std::lock_guard<std::mutex> lock(sessions_mutex_);
     sessions_[uid] = stream;
 }
 
-void RoomManager::UnregisterSession(const std::string& uid) {
+void RoomManager::UnregisterSession(uint32_t uid) {
     std::lock_guard<std::mutex> lock(sessions_mutex_);
     sessions_.erase(uid);
 }
@@ -74,7 +76,7 @@ void RoomManager::BroadcastToRoom(int32_t room_id, int32_t cmd_id, const std::st
 
     auto uids = room->GetPlayerUids();
     std::lock_guard<std::mutex> lock(sessions_mutex_);
-    for (const auto& uid : uids) {
+    for (uint32_t uid : uids) {
         auto it = sessions_.find(uid);
         if (it != sessions_.end()) {
             it->second->Send(cmd_id, payload);
@@ -82,7 +84,7 @@ void RoomManager::BroadcastToRoom(int32_t room_id, int32_t cmd_id, const std::st
     }
 }
 
-void RoomManager::SendToPlayer(const std::string& uid, int32_t cmd_id, const std::string& payload) {
+void RoomManager::SendToPlayer(uint32_t uid, int32_t cmd_id, const std::string& payload) {
     std::lock_guard<std::mutex> lock(sessions_mutex_);
     auto it = sessions_.find(uid);
     if (it != sessions_.end()) {
@@ -90,7 +92,7 @@ void RoomManager::SendToPlayer(const std::string& uid, int32_t cmd_id, const std
     }
 }
 
-std::shared_ptr<Room> RoomManager::GetRoomByUid(const std::string& uid) {
+std::shared_ptr<Room> RoomManager::GetRoomByUid(uint32_t uid) {
     std::lock_guard<std::mutex> lock(mapping_mutex_);
     auto it = uid_to_room_.find(uid);
     if (it != uid_to_room_.end()) {
@@ -99,12 +101,12 @@ std::shared_ptr<Room> RoomManager::GetRoomByUid(const std::string& uid) {
     return nullptr;
 }
 
-void RoomManager::MapUidToRoom(const std::string& uid, int32_t room_id) {
+void RoomManager::MapUidToRoom(uint32_t uid, int32_t room_id) {
     std::lock_guard<std::mutex> lock(mapping_mutex_);
     uid_to_room_[uid] = room_id;
 }
 
-void RoomManager::UnmapUid(const std::string& uid) {
+void RoomManager::UnmapUid(uint32_t uid) {
     std::lock_guard<std::mutex> lock(mapping_mutex_);
     uid_to_room_.erase(uid);
 }

@@ -1,6 +1,7 @@
 #include "game_service.h"
 #include "client_game.pb.h"
 #include <iostream>
+#include <nlohmann/json.hpp>
 
 static std::atomic<int32_t> next_room_id{1000};
 
@@ -13,12 +14,18 @@ grpc::Status GameControlServiceImpl::CreateRoom(grpc::ServerContext* context,
     
     auto room = RoomManager::GetInstance().GetOrCreateRoom(room_id);
     
-    // Add players to room
-    if (request->has_p1()) {
-        room->AddPlayer(request->p1().uid(), request->p1().nickname(), request->p1().character_id());
-    }
-    if (request->has_p2()) {
-        room->AddPlayer(request->p2().uid(), request->p2().nickname(), request->p2().character_id());
+    try {
+        auto players = nlohmann::json::parse(request->player_list_json());
+        for (const auto& p : players) {
+            uint32_t uid = p["uid"].is_string() ? std::stoul(p["uid"].get<std::string>()) : p["uid"].get<uint32_t>();
+            std::string nickname = p.value("nickname", "");
+            int32_t char_id = p.value("character_id", 0);
+            room->AddPlayer(uid, nickname, char_id);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[Game] Failed to parse player_list_json: " << e.what() << std::endl;
+        response->set_err_code(-1);
+        return grpc::Status::OK;
     }
 
     std::cout << "[Game] Created Room " << room_id << " for players." << std::endl;
@@ -36,7 +43,7 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
     
     // Read the first request to identify the session and bind the stream
     if (stream->Read(&req)) {
-        std::string uid = req.uid();
+        uint32_t uid = std::stoul(req.uid());
         uint32_t conn_id = req.conn_id();
         
         std::cout << "[Game] Client Stream established: UID=" << uid << ", ConnID=" << conn_id << std::endl;
@@ -47,7 +54,7 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
         // Process the first request
         auto process_req = [&](const kihan::internal::GatewayRequest& request) {
             uint32_t cmd_id = request.cmd_id();
-            std::string cur_uid = request.uid();
+            uint32_t cur_uid = std::stoul(request.uid());
             const std::string& payload = request.payload();
             
             if (cmd_id == 2001) { // EnterRoomReq
@@ -98,7 +105,7 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
                 if (input_req.ParseFromString(payload)) {
                     auto room = RoomManager::GetInstance().GetRoomByUid(cur_uid);
                     if (room) {
-                        room->PushInput(cur_uid, input_req.input());
+                        room->PushInput(cur_uid, input_req.raw_input());
                     }
                 }
             }
@@ -133,8 +140,8 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
         if (room) {
             // If the game is running and someone disconnects, the other player wins
             if (room->GetState() == RoomState::GAMING) {
-                std::string winner = "";
-                for (const auto& r_uid : room->GetPlayerUids()) {
+                uint32_t winner = 0;
+                for (uint32_t r_uid : room->GetPlayerUids()) {
                     if (r_uid != uid) {
                         winner = r_uid;
                         break;

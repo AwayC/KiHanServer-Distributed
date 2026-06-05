@@ -26,6 +26,7 @@ message GatewayResponse {
     bool kick_client = 4;    // 如果为 true，网关发完包后会主动断开该客户端的物理连接
 }
 
+message Empty {}
 
 // ==========================================
 // 2. gRPC 服务接口定义
@@ -38,6 +39,9 @@ service LobbyService {
     
     // 客户端断开连接通知
     rpc ClientDisconnect(GatewayRequest) returns (GatewayResponse);
+
+    // 网关订阅大厅的主动推送流
+    rpc Subscribe(Empty) returns (stream GatewayResponse);
 }
 
 // 战斗对战服务 (C++ 实现) - 适用于高频的战斗同步

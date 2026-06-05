@@ -33,21 +33,15 @@ message GameStartNtf {
 }
 
 // 2004
-message InputFrame {
-    uint32 frame_id = 1;
-    uint32 joystick = 2;
-    uint32 buttons = 3;
-}
-
 message PlayerFrameInput {
-    InputFrame input = 1;
+    bytes raw_input = 1; // 固定 6 字节二进制: [FrameId(4,大端)][Joystick(1)][Buttons(1)]
 }
 
 // 2005
 message RoomFrame {
     uint32 frame_id = 1;
     uint32 player_count = 2;
-    map<int32, InputFrame> inputs = 3; // key: game_id
+    map<int32, bytes> raw_inputs = 3; // key: game_id, value: 6 bytes raw input
 }
 
 message RoomFrameUpdate {
@@ -57,7 +51,7 @@ message RoomFrameUpdate {
 // 2006
 message GameOverReq {
     int32 room_id = 1;
-    string winner_uid = 2;
+    uint32 winner_uid = 2;
     int32 p1_hp = 3;
     int32 p2_hp = 4;
 }
@@ -69,5 +63,5 @@ message GameOverRsp {
 // 2007
 message GameOverNtf {
     int32 room_id = 1;
-    string winner_uid = 2;
+    uint32 winner_uid = 2;
 }
