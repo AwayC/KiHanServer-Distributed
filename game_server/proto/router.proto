@@ -11,7 +11,7 @@ option go_package = "gateway/pb";
 // 网关发给 C++ 后端的请求
 message GatewayRequest {
     uint32 conn_id = 1;      // 网关持有的客户端连接ID
-    string uid = 2;          // 玩家的 UserID
+    uint32 uid = 2;          // 玩家的 UserID
     uint32 cmd_id = 3;       // 业务命令字
     bytes payload = 4;       // 客户端发上来的具体业务 Protobuf 序列化后的字节流
 }

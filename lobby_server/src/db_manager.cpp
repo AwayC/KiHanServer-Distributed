@@ -34,13 +34,13 @@ bool DBManager::Init(const std::string& host, int port, const std::string& user,
     }
 }
 
-bool DBManager::PlayerExists(const std::string& uid) {
+bool DBManager::PlayerExists(uint32_t uid) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!session_) return false;
     try {
         auto schema = session_->getSchema(db_name_);
         auto table = schema.getTable("kihan_game_players");
-        auto res = table.select("1").where("uid = :uid").bind("uid", uid).execute();
+        auto res = table.select("1").where("uid = :uid").bind("uid", std::to_string(uid)).execute();
         return res.count() > 0;
     } catch (const mysqlx::Error &err) {
         std::cerr << "PlayerExists Error: " << err.what() << std::endl;
@@ -48,7 +48,7 @@ bool DBManager::PlayerExists(const std::string& uid) {
     }
 }
 
-bool DBManager::CreatePlayer(const std::string& uid, const std::string& nickname) {
+bool DBManager::CreatePlayer(uint32_t uid, const std::string& nickname) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!session_) return false;
     try {
@@ -62,7 +62,7 @@ bool DBManager::CreatePlayer(const std::string& uid, const std::string& nickname
             VALUES (?, ?, ?) 
             ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), data = VALUES(data)
         )")
-        .bind(uid)
+        .bind(std::to_string(uid))
         .bind(nickname)
         .bind(R"({"total_battle_count": 0, "win_count": 0})")
         .execute();
@@ -90,7 +90,7 @@ std::string DBManager::valToString(const mysqlx::Value& val) {
     return s;
 }
 
-std::unique_ptr<PlayerData> DBManager::GetPlayerData(const std::string& uid) {
+std::unique_ptr<PlayerData> DBManager::GetPlayerData(uint32_t uid) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!session_) return nullptr;
     try {
@@ -105,7 +105,7 @@ std::unique_ptr<PlayerData> DBManager::GetPlayerData(const std::string& uid) {
         if (!row) return nullptr;
 
         auto data = std::make_unique<PlayerData>();
-        data->uid = valToString(row[0]);
+        data->uid = uid;
         data->nickname = valToString(row[1]);
         
         if (!row[2].isNull()) {
@@ -121,7 +121,7 @@ std::unique_ptr<PlayerData> DBManager::GetPlayerData(const std::string& uid) {
     }
 }
 
-bool DBManager::UpdateBattleStats(const std::string& uid, bool is_win) {
+bool DBManager::UpdateBattleStats(uint32_t uid, bool is_win) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!session_) return false;
     try {

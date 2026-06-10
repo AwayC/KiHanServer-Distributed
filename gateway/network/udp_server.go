@@ -30,7 +30,7 @@ func NewUDPServer(addr string) (*UDPServer, error) {
 	}
 	us.KCPConn = NewGlobalKCPConn(us)
 
-	lis, err := kcp.ServeConn(nil, 10, 3, us.KCPConn)
+	lis, err := kcp.ServeConn(nil, 0, 0, us.KCPConn)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,7 @@ func (u *UDPServer) readLoop() {
 			fmt.Println("UDP Read Error:", err)
 			continue
 		}
+		fmt.Println("UDP Read:", n, "bytes from", addr)
 
 		if n < HeaderSize {
 			continue
@@ -109,14 +110,14 @@ func (u *UDPServer) acceptKCPLoop() {
 			fmt.Println("KCP Accept Error:", err)
 			continue
 		}
-		
+
 		addr := conn.RemoteAddr().String()
 		if DefaultManager != nil {
 			sess := DefaultManager.GetSessionByAddr(addr)
 			if sess != nil {
 				sess.SetKCPConn(conn)
 				fmt.Printf("KCP Connection established for ID: %d\n", sess.ID)
-				
+
 				// Start a goroutine to read KCP data
 				go func(s *Session, c *kcp.UDPSession) {
 					defer s.SetKCPConn(nil)
@@ -126,7 +127,7 @@ func (u *UDPServer) acceptKCPLoop() {
 							fmt.Printf("KCP stream closed for ID %d: %v\n", s.ID, err)
 							break
 						}
-						
+
 						s.DispatchPacket(cmdID, payload)
 					}
 				}(sess, conn)

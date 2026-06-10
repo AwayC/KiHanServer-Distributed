@@ -14,7 +14,7 @@ using namespace kihan::api;
 
 LobbyServiceImpl::LobbyServiceImpl() {
     // TODO: read game server address from config instead of hardcoding
-    auto channel = grpc::CreateChannel("127.0.0.1:50052", grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel("127.0.0.1:9002", grpc::InsecureChannelCredentials());
     game_stub_ = GameControlService::NewStub(channel);
 
     running_ = true;
@@ -211,8 +211,8 @@ void LobbyServiceImpl::HandleMatchGame(const GatewayRequest* req, GatewayRespons
 
         // Prepare player list JSON
         nlohmann::json players = nlohmann::json::array();
-        players.push_back({{"uid", std::stoul(p1.uid)}, {"nickname", p1.nickname}, {"character_id", p1.character_id}});
-        players.push_back({{"uid", std::stoul(p2.uid)}, {"nickname", p2.nickname}, {"character_id", p2.character_id}});
+        players.push_back({{"uid", p1.uid}, {"nickname", p1.nickname}, {"character_id", p1.character_id}});
+        players.push_back({{"uid", p2.uid}, {"nickname", p2.nickname}, {"character_id", p2.character_id}});
 
         CreateRoomReq room_req;
         room_req.set_player_list_json(players.dump());

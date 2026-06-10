@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
@@ -45,11 +46,19 @@ func (ws *WSServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Validate token against Redis
-	uid, err := ws.redisClient.Get(context.Background(), "auth:"+token).Result()
-	if err != nil || uid == "" {
+	uidStr, err := ws.redisClient.Get(context.Background(), "auth:"+token).Result()
+	if err != nil || uidStr == "" {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
+	
+	// Convert uid to uint32
+	uid64, err := strconv.ParseUint(uidStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid UID format", http.StatusInternalServerError)
+		return
+	}
+	uid := uint32(uid64)
 
 	// 3. Upgrade to WebSocket
 	conn, err := ws.upgrader.Upgrade(w, r, nil)
@@ -65,7 +74,7 @@ func (ws *WSServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sess := DefaultManager.AddSession(token, uid, conn)
-	fmt.Printf("User %s connected via WebSocket, Assigned ID: %d, Key: %d\n", uid, sess.ID, sess.Key)
+	fmt.Printf("User %d connected via WebSocket, Assigned ID: %d, Key: %d\n", uid, sess.ID, sess.Key)
 
 	// 5. Send back AuthResponse & UDP handshake info
 	resp := AuthResponse{

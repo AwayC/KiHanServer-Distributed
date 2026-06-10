@@ -1,8 +1,8 @@
 package network
 
 import (
+	"context"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -18,9 +18,12 @@ type Session struct {
 	ID    uint32
 	Key   uint32
 	Token string
-	UID   string
+	UID   uint32
 
 	WSConn *websocket.Conn
+
+	GameStream pb.GameService_StreamBattleClient
+	GameCancel context.CancelFunc
 
 	mu            sync.RWMutex
 	UDPAddr       *net.UDPAddr
@@ -29,7 +32,7 @@ type Session struct {
 	LastHeartbeat time.Time
 }
 
-func NewSession(id uint32, key uint32, token string, uid string, wsConn *websocket.Conn) *Session {
+func NewSession(id uint32, key uint32, token string, uid uint32, wsConn *websocket.Conn) *Session {
 	return &Session{
 		ID:            id,
 		Key:           key,
@@ -107,7 +110,7 @@ func (s *Session) DispatchPacket(cmdID uint16, payload []byte) {
 		return
 	}
 
-	log.Printf("[Session %d] Dispatching Packet: CmdID=%d, UID=%s, PayloadLen=%d\n", s.ID, cmdID, s.UID, len(payload))
+	log.Printf("[Session %d] Dispatching Packet: CmdID=%d, UID=%d, PayloadLen=%d\n", s.ID, cmdID, s.UID, len(payload))
 
 	req := &pb.GatewayRequest{
 		ConnId:  s.ID,
@@ -143,8 +146,54 @@ func (s *Session) DispatchPacket(cmdID uint16, payload []byte) {
 		}
 	} else {
 		// Route to Game Server
-		log.Printf("[Session %d] Routing to GameServer (TODO)...\n", s.ID)
-		fmt.Printf("TODO: Route CmdID %d to GameServer via Stream\n", cmdID)
+		s.mu.Lock()
+		if s.GameStream == nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			s.GameCancel = cancel
+			stream, err := rpc.DefaultRPCManager.GetGameClient().StreamBattle(ctx)
+			if err != nil {
+				s.mu.Unlock()
+				log.Printf("[Session %d] Failed to connect to GameServer: %v\n", s.ID, err)
+				return
+			}
+			s.GameStream = stream
+			log.Printf("[Session %d] Established GameServer StreamBattle\n", s.ID)
+
+			// Start receive loop for this game stream
+			go s.gameStreamRecvLoop(stream)
+		}
+		stream := s.GameStream
+		s.mu.Unlock()
+
+		err := stream.Send(req)
+		if err != nil {
+			log.Printf("[Session %d] Game stream send error: %v\n", s.ID, err)
+		}
+	}
+}
+
+func (s *Session) gameStreamRecvLoop(stream pb.GameService_StreamBattleClient) {
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			log.Printf("[Session %d] Game stream closed: %v\n", s.ID, err)
+			break
+		}
+
+		// Construct frame without length prefix: [CmdID(2)][Payload]
+		outFrame := make([]byte, 2+len(resp.Payload))
+		binary.BigEndian.PutUint16(outFrame[0:2], uint16(resp.CmdId))
+		copy(outFrame[2:], resp.Payload)
+
+		// Send via KCP (channel 1), falls back to WS if KCP isn't ready
+		err = s.Send(1, outFrame)
+		if err != nil {
+			log.Printf("[Session %d] Failed to send game packet to client via KCP: %v\n", s.ID, err)
+		}
+
+		if resp.KickClient {
+			s.Close()
+		}
 	}
 }
 
@@ -156,6 +205,10 @@ func (s *Session) Close() {
 	}
 	s.Connected = false
 	s.mu.Unlock()
+
+	if s.GameCancel != nil {
+		s.GameCancel()
+	}
 
 	if rpc.DefaultRPCManager != nil {
 		go rpc.DefaultRPCManager.NotifyDisconnect(&pb.GatewayRequest{

@@ -15,7 +15,7 @@
 #include "server_game.grpc.pb.h"
 
 struct MatchPlayer {
-    std::string uid;
+    uint32_t uid;
     uint32_t conn_id;
     int32_t character_id;
     std::string nickname;
@@ -50,7 +50,7 @@ private:
     void PushToGateway(uint32_t conn_id, uint32_t cmd_id, const std::string& payload);
 
 private:
-    std::unordered_set<std::string> online_players_;
+    std::unordered_set<uint32_t> online_players_;
     std::mutex online_mutex_;
 
     // Matchmaking queue

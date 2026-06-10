@@ -11,6 +11,10 @@ grpc::Status GameControlServiceImpl::CreateRoom(grpc::ServerContext* context,
                                                 const kihan::internal::CreateRoomReq* request, 
                                                 kihan::internal::CreateRoomRsp* response) {
     int32_t room_id = next_room_id.fetch_add(1);
+    // Simple wrap around to prevent eventual overflow to negative numbers
+    if (room_id > 1000000000) {
+        next_room_id.store(1000);
+    }
     
     auto room = RoomManager::GetInstance().GetOrCreateRoom(room_id);
     
@@ -28,7 +32,7 @@ grpc::Status GameControlServiceImpl::CreateRoom(grpc::ServerContext* context,
         return grpc::Status::OK;
     }
 
-    std::cout << "[Game] Created Room " << room_id << " for players." << std::endl;
+    std::cout << "[Game] Created Room " << room_id << " for players. Sending response..." << std::endl;
 
     response->set_err_code(0); // GAME_ERR_OK
     response->set_room_id(room_id);
@@ -43,7 +47,7 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
     
     // Read the first request to identify the session and bind the stream
     if (stream->Read(&req)) {
-        uint32_t uid = std::stoul(req.uid());
+        uint32_t uid = req.uid();
         uint32_t conn_id = req.conn_id();
         
         std::cout << "[Game] Client Stream established: UID=" << uid << ", ConnID=" << conn_id << std::endl;
@@ -54,9 +58,11 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
         // Process the first request
         auto process_req = [&](const kihan::internal::GatewayRequest& request) {
             uint32_t cmd_id = request.cmd_id();
-            uint32_t cur_uid = std::stoul(request.uid());
+            uint32_t cur_uid = request.uid();
             const std::string& payload = request.payload();
             
+            std::cout << "[Game] Handling Request: CmdID=" << cmd_id << ", UID=" << cur_uid << std::endl;
+
             if (cmd_id == 2001) { // EnterRoomReq
                 kihan::api::EnterRoomReq enter_req;
                 if (enter_req.ParseFromString(payload)) {
@@ -70,9 +76,7 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
                         rsp.mutable_snapshot()->set_player_list_json(room->BuildSnapshotJson());
                         
                         auto player = room->GetPlayer(cur_uid);
-                        if (player->game_id == 0) {
-                            player->game_id = room->AssignGameId();
-                        }
+                    
                         rsp.set_my_game_id(player->game_id);
                         RoomManager::GetInstance().MapUidToRoom(cur_uid, room_id);
                     } else {
@@ -101,11 +105,11 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
                 }
             }
             else if (cmd_id == 2004) { // PlayerFrameInput
-                kihan::api::PlayerFrameInput input_req;
-                if (input_req.ParseFromString(payload)) {
+                // kihan::api::PlayerFrameInput input_req;
+                if (payload.size() == 6) {
                     auto room = RoomManager::GetInstance().GetRoomByUid(cur_uid);
                     if (room) {
-                        room->PushInput(cur_uid, input_req.raw_input());
+                        room->PushInput(cur_uid, payload);
                     }
                 }
             }
@@ -115,7 +119,9 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
                     auto room = RoomManager::GetInstance().GetRoomByUid(cur_uid);
                     kihan::api::GameOverRsp rsp;
                     if (room) {
+                        int32_t rid = room->GetId();
                         room->StopGame(over_req.winner_uid());
+                        RoomManager::GetInstance().DestroyRoom(rid);
                         rsp.set_err_code(0);
                     } else {
                         rsp.set_err_code(-3001);
@@ -147,7 +153,9 @@ grpc::Status GameServiceImpl::StreamBattle(grpc::ServerContext* context,
                         break;
                     }
                 }
+                int32_t rid = room->GetId();
                 room->StopGame(winner);
+                RoomManager::GetInstance().DestroyRoom(rid);
             }
         }
         

@@ -11,17 +11,21 @@ void RoomManager::RunLoop() {
     const auto tick_duration = std::chrono::milliseconds(66); // ~15 FPS
 
     while (running_) {
+        std::vector<std::shared_ptr<Room>> rooms_to_process;
         {
             std::lock_guard<std::mutex> lock(rooms_mutex_);
             for (auto& pair : rooms_) {
-                auto& room = pair.second;
-                if (room->GetState() == RoomState::GAMING) {
-                    room->Tick();
-                } else if (room->GetState() == RoomState::IDLE) {
-                    if (room->IsFull() && room->CheckAllReady()) {
-                        std::cout << "[RoomManager] Room " << room->GetId() << " is starting." << std::endl;
-                        room->StartGame();
-                    }
+                rooms_to_process.push_back(pair.second);
+            }
+        }
+
+        for (auto& room : rooms_to_process) {
+            if (room->GetState() == RoomState::GAMING) {
+                room->Tick();
+            } else if (room->GetState() == RoomState::IDLE) {
+                if (room->IsFull() && room->CheckAllReady()) {
+                    std::cout << "[RoomManager] Room " << room->GetId() << " is starting." << std::endl;
+                    room->StartGame();
                 }
             }
         }
@@ -60,6 +64,21 @@ void RoomManager::RemoveRoom(int32_t room_id) {
     rooms_.erase(room_id);
 }
 
+void RoomManager::DestroyRoom(int32_t room_id) {
+    auto room = GetRoom(room_id);
+    if (!room) return;
+
+    // Unmap all players
+    auto uids = room->GetPlayerUids();
+    for (uint32_t uid : uids) {
+        UnmapUid(uid);
+    }
+
+    // Remove room
+    RemoveRoom(room_id);
+    std::cout << "[RoomManager] Destroyed Room " << room_id << std::endl;
+}
+
 void RoomManager::RegisterSession(uint32_t uid, std::shared_ptr<SessionStream> stream) {
     std::lock_guard<std::mutex> lock(sessions_mutex_);
     sessions_[uid] = stream;
@@ -70,11 +89,7 @@ void RoomManager::UnregisterSession(uint32_t uid) {
     sessions_.erase(uid);
 }
 
-void RoomManager::BroadcastToRoom(int32_t room_id, int32_t cmd_id, const std::string& payload) {
-    auto room = GetRoom(room_id);
-    if (!room) return;
-
-    auto uids = room->GetPlayerUids();
+void RoomManager::SendToPlayers(const std::vector<uint32_t>& uids, int32_t cmd_id, const std::string& payload) {
     std::lock_guard<std::mutex> lock(sessions_mutex_);
     for (uint32_t uid : uids) {
         auto it = sessions_.find(uid);

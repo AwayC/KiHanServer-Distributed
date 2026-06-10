@@ -41,7 +41,7 @@ message PlayerFrameInput {
 message RoomFrame {
     uint32 frame_id = 1;
     uint32 player_count = 2;
-    map<int32, bytes> raw_inputs = 3; // key: game_id, value: 6 bytes raw input
+    map<int32, bytes> raw_inputs = 3; // key: game_id, value: 2 bytes raw input
 }
 
 message RoomFrameUpdate {

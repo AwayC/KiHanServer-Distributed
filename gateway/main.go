@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"gateway/config"
 	"gateway/network"
@@ -65,7 +68,7 @@ func main() {
 		ch := pubsub.Channel()
 		for msg := range ch {
 			var data struct {
-				UID      string `json:"uid"`
+				UID      uint32 `json:"uid"`
 				NewToken string `json:"new_token"`
 			}
 			if err := json.Unmarshal([]byte(msg.Payload), &data); err != nil {
@@ -76,7 +79,7 @@ func main() {
 			sessions := network.DefaultManager.GetSessionsByUID(data.UID)
 			for _, s := range sessions {
 				if s.Token != data.NewToken {
-					fmt.Printf("Kicking old session for UID %s\n", data.UID)
+					fmt.Printf("Kicking old session for UID %d\n", data.UID)
 					
 					// Optionally send a kick packet here before closing
 					// e.g. s.Send(0, kickData)
@@ -84,6 +87,46 @@ func main() {
 					s.Close()
 				}
 			}
+		}
+	}()
+
+	// 5.6 Start Lobby Push Subscription
+	go func() {
+		for {
+			stream, err := rpc.DefaultRPCManager.SubscribeLobby(context.Background())
+			if err != nil {
+				log.Printf("[LobbyPush] Failed to subscribe: %v. Retrying in 3s...\n", err)
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			fmt.Println("[LobbyPush] Successfully subscribed to Lobby push stream")
+
+			for {
+				resp, err := stream.Recv()
+				if err != nil {
+					log.Printf("[LobbyPush] Stream closed: %v. Reconnecting...\n", err)
+					break
+				}
+
+				// Find session
+				sess := network.DefaultManager.GetSession(resp.ConnId)
+				if sess != nil {
+					log.Printf("[LobbyPush] Pushing CmdID=%d to Session=%d\n", resp.CmdId, resp.ConnId)
+					
+					// Construct frame: [CmdID(2)][Payload]
+					outFrame := make([]byte, 2+len(resp.Payload))
+					binary.BigEndian.PutUint16(outFrame[0:2], uint16(resp.CmdId))
+					copy(outFrame[2:], resp.Payload)
+
+					// Send via Reliable channel (0) for lobby notifications
+					sess.Send(0, outFrame)
+
+					if resp.KickClient {
+						sess.Close()
+					}
+				}
+			}
+			time.Sleep(1 * time.Second)
 		}
 	}()
 

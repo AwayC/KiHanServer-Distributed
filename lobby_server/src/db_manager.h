@@ -7,7 +7,7 @@
 #include <iostream>
 
 struct PlayerData {
-    std::string uid;
+    uint32_t uid;
     std::string nickname;
     std::string data_json;
 };
@@ -22,16 +22,16 @@ public:
     bool Init(const std::string& host, int port, const std::string& user, const std::string& password, const std::string& dbname);
     
     // Check if player exists
-    bool PlayerExists(const std::string& uid);
+    bool PlayerExists(uint32_t uid);
     
     // Create new player
-    bool CreatePlayer(const std::string& uid, const std::string& nickname);
+    bool CreatePlayer(uint32_t uid, const std::string& nickname);
 
     // Fetch full player data
-    std::unique_ptr<PlayerData> GetPlayerData(const std::string& uid);
+    std::unique_ptr<PlayerData> GetPlayerData(uint32_t uid);
 
     // Update battle statistics in JSON data field
-    bool UpdateBattleStats(const std::string& uid, bool is_win);
+    bool UpdateBattleStats(uint32_t uid, bool is_win);
 
 private:
     DBManager() = default;

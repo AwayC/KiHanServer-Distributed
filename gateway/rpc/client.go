@@ -56,3 +56,7 @@ func (m *RPCManager) NotifyDisconnect(req *pb.GatewayRequest) error {
 func (m *RPCManager) GetGameClient() pb.GameServiceClient {
 	return m.gameClient
 }
+
+func (m *RPCManager) SubscribeLobby(ctx context.Context) (pb.LobbyService_SubscribeClient, error) {
+	return m.lobbyClient.Subscribe(ctx, &pb.Empty{})
+}

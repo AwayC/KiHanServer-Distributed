@@ -1,7 +1,7 @@
 ## DB表: kihan_game_players (维护用户游戏内信息)
 
 ### 表内信息
-*   **uid**: string (主键，和 user 表的 uid 绑定)
+*   **uid**: uint32 (主键，和 user 表的 uid 绑定)
 *   **nickname**: varchar(64) (唯一昵称)
 *   **create_time**: datetime (创建时间)
 *   **data**: json (其他游戏数据，例如 `{}`)            
@@ -54,7 +54,7 @@
 ### 通用数据结构
 ```protobuf
 message PlayerInfo {
-    string uid = 1;
+    uint32 uid = 1;
     string nickname = 2;
     string data_json = 3; // JSON 格式的游戏存档数据
 }

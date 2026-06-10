@@ -23,7 +23,7 @@ func NewSessionManager() *SessionManager {
 	}
 }
 
-func (m *SessionManager) AddSession(token string, uid string, wsConn *websocket.Conn) *Session {
+func (m *SessionManager) AddSession(token string, uid uint32, wsConn *websocket.Conn) *Session {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -76,7 +76,7 @@ func (m *SessionManager) RemoveSession(id uint32) {
 	}
 }
 
-func (m *SessionManager) GetSessionsByUID(uid string) []*Session {
+func (m *SessionManager) GetSessionsByUID(uid uint32) []*Session {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	

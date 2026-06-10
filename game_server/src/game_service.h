@@ -8,10 +8,13 @@
 // Wrapper for the gRPC ServerReaderWriter
 class GrpcSessionStream : public SessionStream {
 public:
-    GrpcSessionStream(grpc::ServerReaderWriter<kihan::internal::GatewayResponse, kihan::internal::GatewayRequest>* stream, uint32_t conn_id)
+    GrpcSessionStream(grpc::ServerReaderWriter<kihan::internal::GatewayResponse, 
+                    kihan::internal::GatewayRequest>* stream, 
+                    uint32_t conn_id)
         : stream_(stream), conn_id_(conn_id) {}
 
     void Send(int32_t cmd_id, const std::string& payload) override {
+        std::cout << "[GameStream] Sending CmdID=" << cmd_id << " to ConnID=" << conn_id_ << ", PayloadLen=" << payload.length() << std::endl;
         kihan::internal::GatewayResponse resp;
         resp.set_conn_id(conn_id_);
         resp.set_cmd_id(cmd_id);

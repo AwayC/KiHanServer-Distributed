@@ -3,7 +3,7 @@ syntax = "proto3";
 package kihan.api;
 
 message PlayerInfo {
-    string uid = 1;
+    uint32 uid = 1;
     string nickname = 2;
     string data_json = 3;
 }

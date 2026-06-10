@@ -22,11 +22,12 @@ public:
     std::shared_ptr<Room> GetOrCreateRoom(int32_t room_id);
     std::shared_ptr<Room> GetRoom(int32_t room_id);
     void RemoveRoom(int32_t room_id);
+    void DestroyRoom(int32_t room_id);
 
     void RegisterSession(uint32_t uid, std::shared_ptr<SessionStream> stream);
     void UnregisterSession(uint32_t uid);
     
-    void BroadcastToRoom(int32_t room_id, int32_t cmd_id, const std::string& payload);
+    void SendToPlayers(const std::vector<uint32_t>& uids, int32_t cmd_id, const std::string& payload);
     void SendToPlayer(uint32_t uid, int32_t cmd_id, const std::string& payload);
 
     std::shared_ptr<Room> GetRoomByUid(uint32_t uid);
